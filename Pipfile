@@ -8,6 +8,8 @@ prospector = "*"
 
 [packages]
 sanic = "*"
+gino = "*"
+sanic-jwt = "*"
 
 [requires]
 python_version = "3.7"
