@@ -10,6 +10,7 @@ prospector = "*"
 sanic = "*"
 gino = "*"
 sanic-jwt = "*"
+simple-bcrypt = "*"
 
 [requires]
 python_version = "3.7"

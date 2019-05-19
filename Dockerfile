@@ -6,6 +6,7 @@ WORKDIR /$WORKDIR
 COPY . .
 
 RUN apk add build-base
+RUN apk add libffi-dev
 RUN pip install pipenv && pipenv install
 
 EXPOSE 8080

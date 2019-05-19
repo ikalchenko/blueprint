@@ -1,4 +1,4 @@
-from blueprint.bootstrap import run_app
+from blueprint.bootstrap import BlueprintAppRunner
 
 if __name__ == '__main__':
-    run_app()
+    BlueprintAppRunner().run()
