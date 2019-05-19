@@ -5,16 +5,16 @@ class Validator(ABC):
     def __init__(self, **kwargs):
         self.field_values = kwargs
         self.errors = []
-        self.valid = True
+        self.validation_results = []
 
-    def is_valid(self):
+    async def is_valid(self):
         for field, validators in self.rules.items():
             for validator in validators:
                 validator.set_field_and_value(field, self.field_values[field])
-                validation_result = validator.validate()
-                self.valid = False if self.valid and not validation_result else True
+                validation_result = await validator.validate()
+                self.validation_results.append(validation_result)
                 self.errors.extend(validator.get_errors())
-        return self.valid
+        return all(self.validation_results)
 
 
 class BaseValidationCase(ABC):
@@ -32,12 +32,12 @@ class BaseValidationCase(ABC):
         return self._errors
 
     @abstractmethod
-    def validate(self):
+    async def validate(self):
         pass
 
 
 class NotBlank(BaseValidationCase):
-    def validate(self):
+    async def validate(self):
         trimmed_value = self._value.strip()
         validation_result = trimmed_value != ''
         if not validation_result:
@@ -50,7 +50,7 @@ class MinLength(BaseValidationCase):
         super().__init__()
         self.length = length
 
-    def validate(self):
+    async def validate(self):
         validation_result = len(self._value) >= self.length
         if not validation_result:
             self._errors.append(f'{self._field} minimal length is {str(self.length)} symbols')
@@ -58,7 +58,7 @@ class MinLength(BaseValidationCase):
 
 
 class Alphanumeric(BaseValidationCase):
-    def validate(self):
+    async def validate(self):
         has_digit = False
         has_letter = False
         validation_result = False
@@ -76,12 +76,13 @@ class Alphanumeric(BaseValidationCase):
 
 
 class Unique(BaseValidationCase):
-    def __init__(self, model):
+    def __init__(self, model, column):
         super().__init__()
         self.model = model
+        self.column = column
 
-    def validate(self):
-        validation_result = not await self.model.query.get({self._field: self._value})
-        if not validation_result:
+    async def validate(self):
+        user = await self.model.query.where(self.column == self._value).gino.first()
+        if user:
             self._errors.append(f'{self._field} should be unique')
-        return validation_result
+        return not user
