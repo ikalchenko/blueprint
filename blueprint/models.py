@@ -6,5 +6,5 @@ class BaseModel(db.Model):
     # date_created = db.Column(db.DateTime, server_default=db.func.now())
     # date_modified = db.Column(db.DateTime, server_default=db.func.now())
 
-    def serialize(self):
+    async def serialize(self):
         pass

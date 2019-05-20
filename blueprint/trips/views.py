@@ -1,44 +1,79 @@
+from datetime import datetime
+
 from sanic.response import json
 from sanic.views import HTTPMethodView
-from simple_bcrypt import generate_password_hash, check_password_hash
+from sanic_jwt.decorators import protected, inject_user
 
-from ..users.validators import NewUserValidator
-from ..users.models import User
-
-
-async def authenticate(request):
-    reject_json = {'status': 'failed authentication',
-                   'errors': 'Wrong email or password'}
-    user_email = request.json.get('email')
-    user_password = request.json.get('password')
-
-    user = await User.query.where(User.email == user_email).gino.first()
-    if not user or not check_password_hash(user.password, user_password):
-        return json(reject_json)
-
-    return user
+from .models import Trip, UsersTrip
+from .validators import NewTripValidator
 
 
-class RegisterUserView(HTTPMethodView):
+class TripsView(HTTPMethodView):
+    decorators = [protected(), inject_user()]
 
-    async def post(self, request):
-        new_user_email = request.json.get('email')
-        new_user_password = request.json.get('password')
-        new_user_first_name = request.json.get('first_name')
-        new_user_last_name = request.json.get('last_name')
+    async def post(self, request, user):
+        trip_title = request.json.get('title')
+        trip_country = request.json.get('country')
+        trip_city = request.json.get('city')
+        trip_date = request.json.get('date')
 
-        user_validator = NewUserValidator(first_name=new_user_first_name,
-                                          last_name=new_user_last_name,
-                                          email=new_user_email,
-                                          password=new_user_password)
+        trip_validator = NewTripValidator(title=trip_title,
+                                          city=trip_city,
+                                          country=trip_country,
+                                          date=trip_date)
 
-        if not await user_validator.is_valid():
+        if not await trip_validator.is_valid():
             return json({'status': 'failed validation',
-                         'errors': user_validator.errors})
+                         'errors': trip_validator.errors})
+        trip = await Trip.create(title=trip_title,
+                                 city=trip_city,
+                                 country=trip_country,
+                                 date=datetime.strptime(trip_date, '%Y-%m-%d').date())
 
-        await User.create(first_name=new_user_first_name,
-                          last_name=new_user_last_name,
-                          email=new_user_email,
-                          password=generate_password_hash(new_user_password))
+        await UsersTrip.create(user_id=user.id,
+                               trip_id=trip.id,
+                               is_owner=True)
+        return json(trip.serialize())
 
-        return json({'status': 'created'}, status=201)
+    async def get(self, request, user):
+        trips = await UsersTrip.join(Trip).select(UsersTrip.user_id == user.id).gino.all()
+        trips = [Trip(id=trip[4], title=trip[5], country=trip[6], city=trip[7], date=trip[8]) for trip in trips]
+        return json([trip.serialize() for trip in trips])
+
+
+class TripDetailView(HTTPMethodView):
+    decorators = [protected(), inject_user()]
+
+    async def get(self, request, trip_id, user):
+        users_trip = await UsersTrip.query.where(UsersTrip.user_id == user.id)\
+                                          .where(UsersTrip.trip_id == int(trip_id)).gino.first()
+        if not users_trip:
+            return json({'status': 'not found'}, status=404)
+        trip = await Trip.get(int(trip_id))
+        return json(trip.serialize())
+
+    async def delete(self, request, trip_id, user):
+        users_trip = await UsersTrip.query.where(UsersTrip.user_id == user.id)\
+                                          .where(UsersTrip.trip_id == int(trip_id))\
+                                          .where(UsersTrip.is_owner == True).gino.first()
+        if not users_trip:
+            return json({'status': 'not found'}, status=404)
+        await Trip.delete.where(Trip.id == int(trip_id)).gino.status()
+        return json({'status': 'deleted'})
+
+    async def patch(self, request, trip_id, user):
+        new_title = request.json.get('title')
+        new_country = request.json.get('country')
+        new_city = request.json.get('city')
+        new_date = request.json.get('date')
+
+        users_trip = await UsersTrip.query.where(UsersTrip.user_id == user.id) \
+            .where(UsersTrip.trip_id == int(trip_id)).gino.first()
+        if not users_trip:
+            return json({'status': 'not found'}, status=404)
+        trip = await Trip.get(int(trip_id))
+        await trip.update(title=new_title, country=new_country, city=new_city,
+                          date=datetime.strptime(new_date, '%Y-%m-%d').date()).apply()
+        return json({'status': 'modified',
+                     'trip': trip.serialize()})
+

@@ -5,7 +5,7 @@ from sanic_jwt import Initialize
 from .extensions import db
 from .routes import root_bp
 from .users.routes import user_bp
-from .users.views import authenticate
+from .users.helpers import authenticate, retrieve_user
 from .tasks.routes import task_bp
 from .trips.routes import trip_bp
 
@@ -31,7 +31,7 @@ class BlueprintAppRunner:
         self.db.init_app(self.app)
 
     def _init_auth(self):
-        Initialize(self.app, authenticate=authenticate)
+        Initialize(self.app, authenticate=authenticate, retrieve_user=retrieve_user)
 
     def _init_routes(self):
         self.app.blueprint(user_bp)
