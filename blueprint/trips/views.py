@@ -61,7 +61,7 @@ class TripDetailView(HTTPMethodView):
         await Trip.delete.where(Trip.id == int(trip_id)).gino.status()
         return json({'status': 'deleted'})
 
-    async def patch(self, request, trip_id, user):
+    async def put(self, request, trip_id, user):
         new_title = request.json.get('title')
         new_country = request.json.get('country')
         new_city = request.json.get('city')

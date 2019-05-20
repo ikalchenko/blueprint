@@ -1,14 +1,10 @@
-from ..validators import Validator, NotBlank, Unique, MinLength, Alphanumeric
-from .models import Task
+from ..validators import Validator, NotBlank, MinLength
 
 
-class NewUserValidator(Validator):
+class NewTaskValidator(Validator):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.rules = {
-            'first_name': [NotBlank()],
-            'last_name': [NotBlank()],
-            'email': [NotBlank(), Unique(model=User, column=User.email)],
-            'password': [NotBlank(), Alphanumeric(), MinLength(length=8)]
+            'title': [NotBlank(), MinLength(length=2)],
         }
